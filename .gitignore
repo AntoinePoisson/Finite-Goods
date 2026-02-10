@@ -1,0 +1,36 @@
+# env
+.env
+.env.*
+!.env.example
+
+# Go
+bin/
+coverage.out
+*.test
+.cache/
+
+# WebAssembly build
+public/wasm/engine.wasm
+public/wasm/wasm_exec.js
+
+# Node
+node_modules/
+coverage/
+reports/
+.lighthouseci/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# build output
+.artifacts/
+dist/
+
+# Local planning files
+.planning/
+
+# editors / OS
+.DS_Store
+.idea/
+.vscode/
+.pnpm-store/
