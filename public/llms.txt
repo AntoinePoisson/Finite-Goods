@@ -1,0 +1,12 @@
+# Finite Goods
+
+Finite Goods is a fictional shop for six one-of-one objects.
+
+The application runs entirely in the browser. React renders the interface, while a Go state machine compiled to WebAssembly handles reservations and payment events. IndexedDB persists the demo state, Web Locks protect competing updates, and BroadcastChannel synchronises open tabs.
+
+The Stripe flow is a simulation. A browser redirect never confirms a payment; only the explicit webhook simulation can mark the reserved object as acquired.
+
+Main pages:
+- /: available objects
+- /back-office: inventory and event log
+- /about and /how-it-works: architecture and demo notes
