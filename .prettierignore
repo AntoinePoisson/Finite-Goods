@@ -1,0 +1,10 @@
+dist/
+coverage/
+node_modules/
+public/wasm/engine.wasm
+public/wasm/wasm_exec.js
+pnpm-lock.yaml
+reports/
+test-results/
+.lighthouseci/
+.cache/

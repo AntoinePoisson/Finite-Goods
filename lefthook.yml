@@ -1,0 +1,36 @@
+# keep this cheap, CI already runs the heavy stuff
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      glob: '*.{ts,tsx,js,mjs,cjs,css,json,md,yml,yaml}'
+      stage_fixed: true
+      run: sh scripts/with-timeout.sh 120 ./node_modules/.bin/prettier --config config/prettier.mjs --write {staged_files}
+
+    eslint:
+      glob: '*.{ts,tsx,js,mjs,cjs}'
+      stage_fixed: true
+      run: sh scripts/with-timeout.sh 120 ./node_modules/.bin/eslint --config config/eslint.mjs --fix --max-warnings 0 {staged_files}
+
+    go-format:
+      glob: '*.go'
+      stage_fixed: true
+      run: gofmt -w {staged_files}
+
+    typecheck:
+      glob: '*.{ts,tsx}'
+      # 120s is arbitrary, bump if a cold tsc flakes on a laptop
+      run: sh scripts/with-timeout.sh 120 ./node_modules/.bin/tsc --noEmit
+
+    secrets:
+      run: node scripts/check-secrets.mjs
+
+pre-push:
+  commands:
+    tests:
+      run: sh scripts/with-timeout.sh 300 pnpm run test && sh scripts/with-timeout.sh 300 pnpm run test:go
+
+commit-msg:
+  commands:
+    commitlint:
+      run: ./node_modules/.bin/commitlint --config config/commitlint.mjs --edit {1}
