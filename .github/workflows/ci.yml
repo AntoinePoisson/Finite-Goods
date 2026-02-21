@@ -1,0 +1,644 @@
+name: CI/CD Pipeline
+
+on: [push, pull_request]
+
+# write perms are set on the jobs that actually publish
+permissions:
+  contents: read
+
+# keep PR and push in seperate groups so a PR run doesnt cancel the deploy
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24'
+  GO_VERSION: '1.26.5'
+  GOLANGCI_LINT_VERSION: v2.11.4
+  # project pages lives under /repo-name; set the var to / for a user site
+  PAGES_BASE_PATH: ${{ vars.PAGES_BASE_PATH || github.event.repository.name }}
+
+jobs:
+  # --- LINT ---
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      # version comes from package.json
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: cache-node-modules
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+      # strict lint only on main, otherwise just report
+      - name: Run linter
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ] || [ "${{ github.base_ref }}" = "main" ]; then
+            pnpm run lint
+          else
+            echo "::notice::Permissive lint on ${{ github.ref_name }}"
+            pnpm run lint:permissive
+          fi
+
+  # --- TYPECHECK ---
+  typecheck:
+    name: TypeScript Type Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: cache-node-modules
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+
+  # --- DEAD CODE ---
+  knip:
+    name: Dead Code Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: cache-node-modules
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+      - run: pnpm run knip
+
+  # --- SECURITY AUDIT ---
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-
+      - run: pnpm run audit
+
+  # --- SECRETS DETECTION ---
+  secrets-check:
+    name: Secrets Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      # --all, staged diff is empty after checkout
+      - run: node scripts/check-secrets.mjs --all
+
+  # --- GO QUALITY ---
+  go-quality:
+    name: Go Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          # no go.sum in this module
+          cache-dependency-path: go.mod
+      - name: Check Go formatting
+        run: |
+          files=$(gofmt -l engine cmd)
+          if [ -n "$files" ]; then
+            echo "::error::gofmt would rewrite: $files"
+            exit 1
+          fi
+      - run: go vet ./...
+      - uses: golangci/golangci-lint-action@d583c34f0599d37dbac4a198b9c83201be380893 # v9.3.0
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+
+  # --- UNIT TESTS ---
+  test-unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: cache-node-modules
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+      - run: pnpm run test
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-vitest
+          path: coverage/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # --- GO TESTS ---
+  test-go:
+    name: Go Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      # just for the pnpm script, no install needed
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.mod
+      # GOCACHE is inside the repo, setup-go wont see it
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/go-build
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/*.go', 'go.mod') }}
+          restore-keys: ${{ runner.os }}-go-build-
+      - run: pnpm run test:go
+      - run: go tool cover -func=coverage.out
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-go
+          path: coverage.out
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # --- BUILD ---
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.mod
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: cache-node-modules
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+      # wasm + client + prerender
+      - name: Build
+        env:
+          VITE_STRIPE_PAYMENT_LINK: ${{ vars.STRIPE_TEST_PAYMENT_LINK }}
+        run: pnpm run build
+      # keep .nojekyll, upload-artifact drops dotfiles otherwise
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: build-directory
+          path: dist/
+          include-hidden-files: true
+          retention-days: 7
+
+  # --- BUNDLE BUDGETS ---
+  size-limit:
+    name: Bundle Size Check
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: cache-node-modules
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: build-directory
+          path: dist/
+      - run: pnpm run size
+
+  # --- LIGHTHOUSE ---
+  lighthouse:
+    name: Lighthouse
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: cache-node-modules
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: build-directory
+          path: dist/
+      - run: pnpm run lighthouse
+      - run: pnpm run lighthouse:desktop
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lighthouse-reports
+          path: reports/lighthouse/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # --- NODE COMPAT ---
+  node-compat:
+    name: Compatibility Latest Nodejs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: latest
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.mod
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm run build
+
+  # --- E2E DESKTOP ---
+  e2e-desktop:
+    name: E2E (${{ matrix.browser }} - shard ${{ matrix.shard }})
+    if: |
+      (github.event_name == 'push' && github.ref_name == 'main') ||
+      (github.event_name == 'pull_request' && github.base_ref == 'main')
+    needs: [lint, typecheck, test-unit, build]
+    runs-on: ubuntu-latest
+    # a bit above playwright's own timeout so it can still write the report
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: cache-node-modules
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ matrix.browser }}
+          restore-keys: ${{ runner.os }}-playwright-${{ hashFiles('**/pnpm-lock.yaml') }}-
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps ${{ matrix.browser }}
+      # same artifact / base path as the deploy
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: build-directory
+          path: dist/
+      - run: pnpm exec playwright test --config config/playwright.ts --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/2
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-results-${{ matrix.browser }}-shard-${{ matrix.shard }}
+          path: reports/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # --- E2E MOBILE ---
+  e2e-mobile:
+    name: E2E (${{ matrix.project }})
+    if: |
+      (github.event_name == 'push' && github.ref_name == 'main') ||
+      (github.event_name == 'pull_request' && github.base_ref == 'main')
+    needs: [lint, typecheck, test-unit, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: mobile-chrome
+            engine: chromium
+          - project: mobile-safari
+            engine: webkit
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: cache-node-modules
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ matrix.engine }}
+          restore-keys: ${{ runner.os }}-playwright-${{ hashFiles('**/pnpm-lock.yaml') }}-
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps ${{ matrix.engine }}
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps ${{ matrix.engine }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: build-directory
+          path: dist/
+      - run: pnpm exec playwright test --config config/playwright.ts --project=${{ matrix.project }}
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-results-${{ matrix.project }}
+          path: reports/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # --- BENCHMARK ---
+  benchmark:
+    name: Benchmark Execution
+    if: github.event_name == 'push' && github.ref_name == 'main'
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: cache-node-modules
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/pnpm-lock.yaml') }}-chromium
+          restore-keys: ${{ runner.os }}-playwright-${{ hashFiles('**/pnpm-lock.yaml') }}-
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: build-directory
+          path: dist/
+      # median of 3, one noisy runner shouldnt look like a regression
+      - run: pnpm run benchmark
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmark-results
+          path: reports/benchmark/
+          retention-days: 30
+          if-no-files-found: ignore
+
+  # --- BENCHMARK REPORT ---
+  benchmark-report:
+    name: Benchmark Report
+    needs: [benchmark]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: benchmark-results
+          path: reports/benchmark/
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/benchmark
+          key: benchmark-data-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: benchmark-data-${{ github.ref_name }}-
+      - id: check-files
+        run: |
+          mkdir -p .cache/benchmark
+          [ -f reports/benchmark/benchmark-smaller.json ] && echo "smaller=true" >> $GITHUB_OUTPUT || echo "smaller=false" >> $GITHUB_OUTPUT
+          [ -f reports/benchmark/benchmark-bigger.json ] && echo "bigger=true" >> $GITHUB_OUTPUT || echo "bigger=false" >> $GITHUB_OUTPUT
+      - if: steps.check-files.outputs.smaller == 'true'
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
+        with:
+          tool: customSmallerIsBetter
+          output-file-path: reports/benchmark/benchmark-smaller.json
+          external-data-json-path: .cache/benchmark/data-smaller.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          alert-threshold: '130%'
+          fail-threshold: '200%'
+          comment-on-alert: true
+          summary-always: true
+      - if: steps.check-files.outputs.bigger == 'true'
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
+        with:
+          tool: customBiggerIsBetter
+          output-file-path: reports/benchmark/benchmark-bigger.json
+          external-data-json-path: .cache/benchmark/data-bigger.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          alert-threshold: '130%'
+          fail-threshold: '200%'
+          comment-on-alert: true
+          summary-always: true
+      - if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/benchmark
+          key: benchmark-data-${{ github.ref_name }}-${{ github.run_id }}
+
+  # --- DEPLOY ---
+  # Pages source must be "GitHub Actions", not "Deploy from a branch"
+  deploy-prod:
+    name: Deploy Production
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs:
+      - lint
+      - typecheck
+      - knip
+      - security-audit
+      - secrets-check
+      - go-quality
+      - test-unit
+      - test-go
+      - build
+      - size-limit
+      - lighthouse
+      - e2e-desktop
+      - e2e-mobile
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - id: pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      # catch a base-path mismatch before we upload
+      - name: Check the build matches the deployment base path
+        run: |
+          served=$(printf '%s' "${{ steps.pages.outputs.base_path }}" | sed 's:^/*::; s:/*$::')
+          built=$(printf '%s' "$PAGES_BASE_PATH" | sed 's:^/*::; s:/*$::')
+          if [ "$served" != "$built" ]; then
+            echo "::error::The build targets /$built but Pages serves /$served. Set the PAGES_BASE_PATH repository variable."
+            exit 1
+          fi
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: build-directory
+          path: dist/
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+      # did the live url actually get this build?
+      - name: Smoke-test the deployed site
+        run: node scripts/smoke-deployment.mjs "${{ steps.deployment.outputs.page_url }}"
+
+  # --- RELEASE ---
+  release-prod:
+    name: Release Production
+    if: needs.deploy-prod.result == 'success' && github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [deploy-prod]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          release-type: node
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: config/release-please/config-prod.json
+          manifest-file: config/release-please/manifest-prod.json
+          target-branch: main
