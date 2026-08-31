@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - uses: actions/setup-go@v6
+        with:
+          go-version: 1.26.5
+          cache: true
+      - run: pnpm install --frozen-lockfile
+      - name: Scan tracked files for secrets
+        run: pnpm run secrets
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+      - name: Check Go formatting
+        run: |
+          files=$(gofmt -l engine cmd)
+          if [ -n "$files" ]; then
+            echo "$files"
+            exit 1
+          fi
+      - run: go vet ./...
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.11.4
+      - run: pnpm audit --prod --audit-level high
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - uses: actions/setup-go@v6
+        with:
+          go-version: 1.26.5
+          cache: true
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test
+      - run: pnpm run test:go
+
+  build:
+    name: Build and budgets
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - uses: actions/setup-go@v6
+        with:
+          go-version: 1.26.5
+          cache: true
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - run: pnpm run size
+
+  browser:
+    name: Browser journeys
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - uses: actions/setup-go@v6
+        with:
+          go-version: 1.26.5
+          cache: true
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm run e2e
+
+  lighthouse:
+    name: Lighthouse
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - uses: actions/setup-go@v6
+        with:
+          go-version: 1.26.5
+          cache: true
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - run: pnpm exec lhci autorun --config=config/lighthouse.cjs
+      - run: LIGHTHOUSE_DESKTOP=true pnpm exec lhci autorun --config=config/lighthouse.cjs

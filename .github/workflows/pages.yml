@@ -1,0 +1,53 @@
+name: GitHub Pages
+
+on:
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build and deploy
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - uses: actions/setup-go@v6
+        with:
+          go-version: 1.26.5
+          cache: true
+      - id: pages
+        uses: actions/configure-pages@v6
+      - run: pnpm install --frozen-lockfile
+      - name: Build production site
+        env:
+          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          VITE_STRIPE_PAYMENT_LINK: ${{ vars.STRIPE_TEST_PAYMENT_LINK }}
+        run: pnpm run build
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v5

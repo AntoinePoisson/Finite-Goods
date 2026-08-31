@@ -1,0 +1,84 @@
+{
+  "name": "finite-goods",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A browser-only shop for one-of-one objects.",
+  "authors": [
+    "Antoine Poisson"
+  ],
+  "type": "module",
+  "packageManager": "pnpm@10.17.0",
+  "engines": {
+    "node": ">=24.15.0"
+  },
+  "scripts": {
+    "prepare": "lefthook install",
+    "dev": "pnpm run wasm && vite --config config/vite.ts",
+    "build": "pnpm run wasm && vite build --config config/vite.ts && vite build --config config/vite.ts --ssr entry-server.tsx --outDir ../.ssr && node scripts/postbuild.mjs && node scripts/check-build.mjs",
+    "preview": "vite preview --config config/vite.ts --port 4173",
+    "wasm": "node scripts/build-wasm.mjs",
+    "format": "prettier --config config/prettier.mjs --write .",
+    "format:check": "prettier --config config/prettier.mjs --check .",
+    "lint": "pnpm run format:check && eslint --config config/eslint.mjs --max-warnings 0 .",
+    "lint:fix": "prettier --config config/prettier.mjs --write . && eslint --config config/eslint.mjs --fix --max-warnings 0 .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config config/vitest.ts --coverage",
+    "test:go": "GOCACHE=$PWD/.cache/go-build go test -race -cover ./...",
+    "e2e": "playwright test --config config/playwright.ts",
+    "check": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:go && pnpm run build",
+    "size": "size-limit",
+    "secrets": "node scripts/check-secrets.mjs --all",
+    "audit": "pnpm audit --prod --audit-level high"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@commitlint/config-conventional": "^21.2.0",
+    "@lhci/cli": "^0.15.1",
+    "@playwright/test": "^1.62.0",
+    "@size-limit/file": "^13.0.2",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
+    "@vitejs/plugin-react": "^6.0.5",
+    "@vitest/coverage-v8": "^4.1.10",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.8.0",
+    "jsdom": "^30.0.1",
+    "commitlint": "^21.2.1",
+    "lefthook": "^2.1.10",
+    "prettier": "^3.9.6",
+    "size-limit": "^13.0.2",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
+  },
+  "size-limit": [
+    {
+      "name": "Initial JavaScript",
+      "path": "dist/assets/*.js",
+      "limit": "130 KB"
+    },
+    {
+      "name": "Styles",
+      "path": "dist/assets/*.css",
+      "limit": "12 KB"
+    }
+  ],
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "lefthook"
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+/* TEAM */
+Developer: Antoine Poisson
+Location: France
+
+/* PROJECT */
+Name: Finite Goods
+Stack: React, TypeScript, Go, WebAssembly
+Hosting: GitHub Pages
