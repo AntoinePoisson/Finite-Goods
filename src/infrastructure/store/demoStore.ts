@@ -1,4 +1,4 @@
-import type { Command, CommandType, CustomerDetails, StoreSnapshot, World } from '../../domain/types';
+import type { Command, CommandType, CustomerDetails, StoreSnapshot } from '../../domain/types';
 import { readWorld, resetWorld, VersionConflictError, writeWorld } from '../database/worldDatabase';
 import { engine } from '../engine/client';
 
@@ -190,7 +190,3 @@ async function withWorldLock<T>(action: () => Promise<T>) {
 }
 
 export const demoStore = new DemoStore();
-
-export function objectFromWorld(world: World, objectId: string) {
-  return world.objects.find((object) => object.id === objectId);
-}

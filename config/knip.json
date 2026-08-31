@@ -1,0 +1,42 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/entry-server.tsx",
+    "config/*.{ts,mjs,cjs}",
+    "scripts/*.mjs",
+    "public/sw.js",
+    "public/wasm/engine.worker.js",
+    "e2e/reporters/*.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "config/**/*.{ts,mjs,cjs}",
+    "scripts/**/*.mjs",
+    "e2e/**/*.ts",
+    "tests/**/*.{ts,tsx}",
+    "public/**/*.js"
+  ],
+  "ignoreBinaries": ["go"],
+  "ignoreUnresolved": ["../.ssr/entry-server.js"],
+  "ignoreExportsUsedInFile": true,
+  "commitlint": {
+    "config": ["config/commitlint.mjs"]
+  },
+  "eslint": {
+    "config": ["config/eslint.mjs"]
+  },
+  "prettier": {
+    "config": ["config/prettier.mjs"]
+  },
+  "playwright": {
+    "config": ["config/playwright.ts"],
+    "entry": ["e2e/**/*.spec.ts"]
+  },
+  "vite": {
+    "config": ["config/vite.ts"]
+  },
+  "vitest": {
+    "config": ["config/vitest.ts"],
+    "entry": ["tests/**/*.{test,spec}.{ts,tsx}", "tests/setup.ts"]
+  }
+}
