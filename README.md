@@ -25,6 +25,17 @@ React 19 · Go 1.26 compiled to WebAssembly · IndexedDB · Web Locks — one st
 
 </div>
 
+> This is intentionally an engineering demo, not a recommended production architecture for
+> e-commerce. The server was removed on purpose, to find out what is left to enforce an invariant
+> with when the only runtime you get is the browser.
+
+## Engineering highlights
+
+- **Concurrency safety** — competing reservations across tabs cannot corrupt inventory.
+- **Explicit domain modelling** — the business rules live in a deterministic Go state machine, not in components.
+- **Trust boundaries** — a browser payment return is never treated as proof of payment.
+- **Production discipline** — CI, cross-browser E2E, race detection, performance budgets, deployment validation.
+
 ## The one hard rule
 
 Every object in the catalogue is edition 1/1. Selling the same one twice is the failure this project
@@ -180,8 +191,33 @@ append-only event log with the identifiers that make the whole thing replay-safe
 
 <img src="docs/media/back-office.png" alt="The back office: counters for 6 objects, 5 available, 0 held, 1 acquired; a versioned inventory table with Ordinary Rock marked SOLD; and an event log showing inventory.acquired, checkout.returned, checkout.started and reservation.created, each with its event_id and reservation_id" width="880">
 
-`Version 5` in the inventory header is the optimistic-concurrency counter — the same number the write
-path compares against before it commits.
+## Design decisions and trade-offs
+
+**Why Go compiled to WebAssembly?** Not because this is how I would build a production storefront,
+but because the project explores whether the exact same deterministic domain engine can run in the
+browser and be race-tested outside the UI layer. It can, and the cost is measurable — below.
+
+**The engine is pure, and that is the whole point.** `Apply(World, Command) → Result` reads no clock,
+touches no storage and generates no identifiers — the command carries `now` and its event ID. So the
+exact code the browser runs is also the code `go test -race` exercises, and the browser is free to
+retry a command without reasoning about side effects.
+
+**The 3.4 MB engine is never on the critical path, and that is what pays for it.** The worker is
+created lazily, on the first command. Loading the homepage requests the HTML, one JS bundle and the
+object images — no `engine.wasm`, no stylesheet request at all. The first command then costs
+~900 ms and every one after it ~20 ms; Go's WebAssembly runtime is what makes the first number
+large, nothing in the domain logic does. It is a real trade-off, taken knowingly: the demo buys a
+testable, race-checked state machine and pays for it with one deferred second, once, when someone
+actually reserves something.
+
+**Two guards, not one.** Web Locks serialise the writers; the IndexedDB version check aborts the
+transaction if the world moved underneath. The second one is not redundant — it is what holds the
+line in a browser without Web Locks, and it is why the store can map a lost race to `STATE_CHANGED`
+and refresh instead of corrupting anything.
+
+**A browser redirect is user-controlled, so it is never proof.** A static host makes that
+distinction unavoidable; plenty of real checkouts blur it anyway, by treating the return URL as a
+receipt.
 
 ## Measured, not claimed
 
@@ -257,115 +293,6 @@ output is complete — `scripts/postbuild.mjs` and `scripts/check-build.mjs` do 
 Set `VITE_STRIPE_PAYMENT_LINK` to a Stripe Payment Link in test mode and the checkout leaves for the
 real hosted page. Without it, the local return page demonstrates the same trust boundary. Either way
 no real payment is processed and nothing is stored outside the browser.
-
-## What's inside
-
-| Area           | Implementation                                                                    |
-| -------------- | --------------------------------------------------------------------------------- |
-| Domain engine  | Go 1.26 → WebAssembly, **zero dependencies**, 413 lines, hosted in a Web Worker   |
-| Interface      | React 19 + TypeScript 5.9, no UI framework, no state library, a 41-line router    |
-| Durability     | IndexedDB with an optimistic version check on every write                         |
-| Concurrency    | Web Locks API, with the version check as the fallback                             |
-| Cross-tab sync | BroadcastChannel, with a `storage` event fallback                                 |
-| Build          | Vite 8, SSR pre-render of the homepage, inlined CSS, per-route HTML shells        |
-| Offline        | A hand-written service worker: network-first for pages, cache-first for assets    |
-| Tests          | Vitest · `go test -race` · Playwright on 5 browser projects · Lighthouse CI       |
-| Quality        | ESLint (+ jsx-a11y, react-hooks) · Prettier · golangci-lint · knip · size-limit   |
-| Delivery       | GitHub Actions → GitHub Pages, gated, then smoke-tested against the live URL      |
-| Releases       | Conventional Commits enforced by commitlint, tags and changelog by Release Please |
-
-Production dependencies, in full: `react` and `react-dom`. The Go module has no `go.sum` because it
-requires nothing.
-
-## Quality gates
-
-Fourteen jobs run on a pull request, twenty runs once the end-to-end matrix fans out. **Thirteen of
-them are listed as `needs` on the deployment**, so a red check does not ship. The release job runs
-only after a successful deploy, which means a tag can never point at code that was never published.
-
-| Gate               | What it enforces                                                               | Runs on     |
-| ------------------ | ------------------------------------------------------------------------------ | ----------- |
-| Lint               | Prettier + ESLint; warnings only block on `main` and on PRs targeting it       | commit, CI  |
-| Type check         | `tsc --noEmit`                                                                 | commit, CI  |
-| Dead code          | knip — unused files, exports and dependencies                                  | CI          |
-| Secrets            | the staged diff on commit, every tracked file in CI                            | commit, CI  |
-| Security audit     | `pnpm audit --prod`, failing at moderate                                       | CI          |
-| Go lint            | `gofmt` on commit; the diff, `go vet` and golangci-lint in CI                  | commit, CI  |
-| Unit tests         | Vitest with coverage                                                           | push, CI    |
-| Go tests           | `go test -race`, atomic coverage profile                                       | push, CI    |
-| Build              | the artifact every downstream job then reuses — no rebuild anywhere            | CI          |
-| Bundle budgets     | size-limit against that artifact                                               | CI          |
-| Lighthouse         | mobile and desktop, all four categories asserted at 100                        | CI          |
-| E2E desktop        | Chromium · Firefox · WebKit, two shards each                                   | CI          |
-| E2E mobile         | Pixel 5 and iPhone 14 device profiles                                          | CI          |
-| Benchmarks         | three timings tracked over time, alerting past 130 % of the baseline           | `main` only |
-| Node compatibility | the build against Node `latest`, non-blocking early warning                    | CI          |
-| Deployment smoke   | the **live URL** after the deploy: shells, assets, wasm MIME type, 404 noindex | `main` only |
-
-Every end-to-end and Lighthouse job downloads the exact artifact the deployment publishes, base path
-included, so a link that forgets the `/Finite-Goods` prefix fails in CI rather than in production.
-
-## Structure
-
-```text
-engine/                 The domain. No I/O, no clock, no randomness.
-├── domain/             Objects, orders, events, commands, typed errors
-├── application/        Apply(World, Command) → Result — the whole rulebook
-└── bridge/             JSON in, JSON out; the only thing the worker calls
-cmd/wasm/               js/wasm entry point, exposes finiteGoodsApply on globalThis
-
-src/
-├── app/                App shell, router table, store provider
-├── domain/             The catalogue and the TypeScript mirror of the Go types
-├── infrastructure/
-│   ├── database/       IndexedDB, seeding, the optimistic version check
-│   ├── engine/         Worker client, request/response pairing
-│   ├── store/          Commands, Web Lock, BroadcastChannel, error mapping
-│   └── routing.ts      The router, base-path aware
-├── routes/             Home · object · checkout · Stripe return · back office · about · 404
-└── components/         Presentational only
-
-config/                 Every tool's config, out of the project root
-scripts/                wasm build · post-build pre-render · build check · secret scan
-e2e/                    Journeys, performance benchmarks, the benchmark reporter
-```
-
-## Things worth knowing
-
-**The engine is pure, and that is the whole point.** `Apply(World, Command) → Result` reads no clock,
-touches no storage and generates no identifiers — the command carries `now` and its event ID. So the
-exact code the browser runs is also the code `go test -race` exercises, and the browser is free to
-retry a command without reasoning about side effects.
-
-**The 3.4 MB engine is never on the critical path.** The worker is created lazily, on the first
-command. Loading the homepage requests the HTML, one JS bundle and the object images — no
-`engine.wasm`, no stylesheet request at all. That is the difference between a 100 and a much smaller
-number, and it is the reason a Go runtime in a shop front is defensible: you pay for it once, when
-someone actually reserves something, and never on a page view.
-
-**The first command costs ~900 ms and every one after it costs ~20 ms.** Go's WebAssembly runtime is
-what makes the first number large; nothing in the domain logic does. It is a real trade-off, taken
-knowingly: the demo buys a testable, race-checked state machine and pays for it with one deferred
-second.
-
-**A browser redirect is user-controlled, so it is never proof.** `RETURN_FROM_CHECKOUT` moves the
-order to `UNVERIFIED_RETURN` and deliberately leaves the object held. Only `CONFIRM_PAYMENT` consumes
-inventory. A static host makes that distinction unavoidable; plenty of real checkouts blur it
-anyway, by treating the return URL as a receipt.
-
-**Two guards, not one.** Web Locks serialise the writers; the IndexedDB version check aborts the
-transaction if the world moved underneath. The second one is not redundant — it is what holds the
-line in a browser without Web Locks, and it is why the store can map a lost race to
-`STATE_CHANGED` and refresh instead of corrupting anything.
-
-**The deployment base path is compiled into the artifact.** A GitHub Pages project site lives below
-`/Finite-Goods`, and a static build bakes that prefix into every URL it emits. So one job builds, and
-the E2E specs, Lighthouse and the deployment all consume that same artifact. The deploy job compares
-the prefix it was built with against the one Pages will serve, and refuses to upload on a mismatch —
-cheaper than shipping a site whose every asset 404s.
-
-**Pages has to be set to Settings → Pages → Source: GitHub Actions.** Left on "Deploy from a branch"
-it serves this README instead of the site, because `dist/` is never committed.
 
 ## License
 
