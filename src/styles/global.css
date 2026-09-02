@@ -769,9 +769,9 @@
   /* Object details */
   .product-page {
     display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(390px, 0.8fr);
+    grid-template-columns: minmax(0, 1fr) minmax(390px, 1fr);
     gap: 22px;
-    width: min(100% - 64px, 1450px);
+    width: min(100% - 64px, 1120px);
     margin: 2rem auto 0;
   }
 
@@ -779,10 +779,11 @@
     min-width: 0;
   }
 
+  /* Bounded by the viewport, not by the column: sized from the column alone the frame filled a
+     laptop screen on its own and pushed the object's own details below the fold. */
   .product-gallery__main {
     display: grid;
-    aspect-ratio: 5 / 4;
-    height: auto;
+    height: clamp(300px, 52vh, 460px);
     overflow: hidden;
     border: 1px solid var(--line);
     border-radius: var(--radius);
@@ -791,6 +792,9 @@
   }
 
   .product-gallery__main img {
+    /* Without it the automatic minimum size grows the row past the frame and the crop lands on
+       the image, which is what object-fit is here to avoid. */
+    min-height: 0;
     mix-blend-mode: multiply;
     object-fit: contain;
     transform: none;
@@ -953,7 +957,7 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     max-width: 700px;
-    margin: 0 auto 2rem;
+    margin: 0 auto 1.4rem;
     list-style: none;
   }
 
@@ -1001,12 +1005,12 @@
   }
 
   .checkout-page__heading {
-    margin-bottom: 1.8rem;
+    margin-bottom: 1.4rem;
     text-align: center;
   }
 
   .checkout-page__heading h1 {
-    font-size: clamp(2.7rem, 5vw, 4rem);
+    font-size: clamp(2.2rem, 3.4vw, 3rem);
     text-transform: uppercase;
   }
 
@@ -1157,7 +1161,8 @@
     width: 100%;
     height: 190px;
     border-radius: 8px;
-    object-fit: cover;
+    /* The object being reserved, not a decorative thumbnail: `cover` cut its top and bottom off. */
+    object-fit: contain;
   }
 
   .order-summary__name {
@@ -2221,6 +2226,7 @@
     }
 
     .product-gallery__main {
+      aspect-ratio: 5 / 4;
       height: auto;
     }
 
