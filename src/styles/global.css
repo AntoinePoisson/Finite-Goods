@@ -769,10 +769,11 @@
 
   /* Type sized from the card, not from the viewport, so the longest name in the catalogue stays
      on one line at every column count instead of wrapping and pushing that one card's rows out of
-     line with its neighbours. */
+     line with its neighbours. The floor is the 12px Lighthouse asks of body copy on a phone: below
+     it the two-up card was setting the object's own name smaller than its legend. */
   .object-card__heading h2 {
     margin-bottom: 0.3rem;
-    font-size: clamp(0.62rem, 5.4cqi, 0.78rem);
+    font-size: clamp(0.75rem, 5.4cqi, 0.78rem);
     font-weight: 750;
     letter-spacing: 0;
     text-transform: uppercase;
@@ -991,14 +992,72 @@
     font-size: 0.65rem;
   }
 
-  .certificate-preview b {
-    display: grid;
-    flex: 0 0 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: var(--terracotta);
-    color: #8f4e2f;
-    place-items: center;
+  .certificate-preview .seal {
+    flex: 0 0 78px;
+  }
+
+  /* Certificate seal - one ink, pressed rather than printed, at both sizes it is used. */
+  .seal {
+    width: 100%;
+    height: auto;
+    color: #ad5c35;
+    /* The disc darkens the sheet under it instead of covering it, so the paper still reads
+       through the stamp. */
+    mix-blend-mode: multiply;
+  }
+
+  .seal__teeth {
+    fill: none;
+    stroke: currentColor;
+    stroke-dasharray: 1 3.2;
+    stroke-linecap: round;
+    stroke-width: 2.2;
+    opacity: 0.45;
+  }
+
+  .seal__disc {
+    fill: #f2dccc;
+    stroke: currentColor;
+    stroke-width: 1.4;
+  }
+
+  .seal__core,
+  .seal__rule {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 0.7;
+    opacity: 0.5;
+  }
+
+  .seal__pip {
+    fill: currentColor;
+    opacity: 0.7;
+  }
+
+  .seal__legend {
+    fill: currentColor;
+    font-family: var(--sans);
+    font-size: 6.4px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-anchor: middle;
+  }
+
+  .seal__mark {
+    fill: currentColor;
+    font-family: var(--serif);
+    font-size: 19px;
+    text-anchor: middle;
+  }
+
+  .seal__unit {
+    fill: currentColor;
+    font-family: var(--sans);
+    font-size: 5.6px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-anchor: middle;
+    opacity: 0.75;
   }
 
   /* Reservation and confirmation */
@@ -1477,19 +1536,14 @@
     margin-top: 0.7rem;
   }
 
-  .certificate em {
+  /* Off square by a few degrees: a seal is applied by hand, and a perfectly upright one reads as
+     part of the template rather than as something granted to this object. */
+  .certificate .seal {
     position: absolute;
     right: 3rem;
     bottom: 2.5rem;
-    display: grid;
-    width: 70px;
-    height: 70px;
-    border-radius: 50%;
-    background: #dfa077;
-    color: #b06b46;
-    font-style: normal;
-    font-weight: 700;
-    place-items: center;
+    width: 88px;
+    transform: rotate(-7deg);
   }
 
   /* Local operations console */
@@ -2430,8 +2484,10 @@
       gap: 0.65rem;
     }
 
+    /* 12px rather than the 9.3px this used to compute to: the navigation is the first text on
+       every page and Lighthouse counts it against the legible-font-size audit. */
     .site-header nav > a {
-      font-size: 0.58rem;
+      font-size: 0.75rem;
     }
 
     .home-hero__rock-image {

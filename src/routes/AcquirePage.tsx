@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent, type InputHTMLAttributes } from 'react';
 
 import { useDemoSnapshot, useDemoStore } from '../app/StoreProvider';
+import { CertificateSeal } from '../components/CertificateSeal';
 import { Countdown } from '../components/Countdown';
 import { ArrowIcon, CardIcon, ShieldIcon } from '../components/Icons';
 import { Link } from '../components/Link';
@@ -376,7 +377,7 @@ function Confirmation({ item, order }: { item: CatalogItem; order: Order }) {
             <b>{item.serial}</b>
           </div>
           <div className='barcode barcode--wide' aria-hidden='true' />
-          <em>FG</em>
+          <CertificateSeal />
         </div>
       </div>
     </section>

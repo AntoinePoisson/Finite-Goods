@@ -1,3 +1,4 @@
+import { CertificateSeal } from '../components/CertificateSeal';
 import { ArrowIcon, ExternalIcon } from '../components/Icons';
 import { Link } from '../components/Link';
 import { ObjectIllustration } from '../components/ObjectIllustration';
@@ -96,7 +97,7 @@ function ObjectDetails({ item }: { item: CatalogItem }) {
             <span>Certificate of Ordinariness</span>
             <p>This object is, to the best of our knowledge, entirely itself.</p>
           </div>
-          <b>FG</b>
+          <CertificateSeal />
         </section>
       </div>
     </article>
