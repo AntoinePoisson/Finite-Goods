@@ -90,7 +90,12 @@ export function AcquirePage({ slug }: { slug: string }) {
 
   return (
     <section className='checkout-page'>
-      <Progress active={2} />
+      <div className='checkout-page__nav'>
+        <Link className='back-link back-link--button' to={`/objects/${item.slug}`}>
+          ← Back to the object
+        </Link>
+        <Progress active={2} objectSlug={item.slug} />
+      </div>
       <header className='checkout-page__heading'>
         <h1>Reserve your object</h1>
         <div>
@@ -299,15 +304,26 @@ function DemoInput({ value, demoValue, onValue, ...props }: DemoInputProps) {
   );
 }
 
-function Progress({ active }: { active: number }) {
+function Progress({ active, objectSlug }: { active: number; objectSlug?: string }) {
   return (
     <ol className='checkout-progress' aria-label='Reservation progress'>
-      {['Object', 'Reservation', 'Confirmation'].map((label, index) => (
-        <li key={label} className={index + 1 <= active ? 'is-active' : ''}>
-          <span>{index + 1}</span>
-          <small>{label}</small>
-        </li>
-      ))}
+      {['Object', 'Reservation', 'Confirmation'].map((label, index) => {
+        const step = index + 1;
+        const marker = (
+          <>
+            <span>{step}</span>
+            <small>{label}</small>
+          </>
+        );
+
+        return (
+          <li key={label} className={step <= active ? 'is-active' : ''}>
+            {/* The object is the only earlier step that is still a page to walk back to: the
+                confirmation never offers the way back to a reservation it has already taken. */}
+            {step === 1 && objectSlug ? <Link to={`/objects/${objectSlug}`}>{marker}</Link> : marker}
+          </li>
+        );
+      })}
     </ol>
   );
 }

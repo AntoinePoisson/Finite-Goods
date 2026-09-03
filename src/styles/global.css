@@ -50,6 +50,10 @@
   :root {
     --ivory: #f7f4ee;
     --paper: #fbf9f5;
+    /* Flat backdrop baked into every object photograph: surfaces that carry the art use it so
+       the picture has no visible edge of its own. Sampled from the source files, whose corners
+       sit between #f6f0eb and #faf7f0. */
+    --object-bg: #f8f4ed;
     --ink: #0d1d22;
     --muted: #5f625e;
     --line: #ddd8cf;
@@ -58,6 +62,12 @@
     --terracotta: #d78658;
     --blue: #6f96c3;
     --radius: 12px;
+    /* One gutter and one shell for every page. Every full-width region resolves its width from
+       these two, so the header, the hero, the grid and the footer share a single left edge
+       instead of the three the page used to show. Pages that read better narrow override the
+       max width alone and keep the gutter. */
+    --gutter: 32px;
+    --shell: 1480px;
     --sans: Arial, Helvetica, ui-sans-serif, system-ui, sans-serif;
     --serif: Iowan Old Style, Baskerville, Georgia, serif;
   }
@@ -74,13 +84,21 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  html:has(.home-hero),
-  body:has(.home-hero) {
-    scrollbar-width: none;
+  /* React mounts here, so the column that keeps the footer down has to live on this node rather
+     than on the body: the body has a single child and would push nothing. */
+  #root {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
   }
 
-  body:has(.home-hero)::-webkit-scrollbar {
-    display: none;
+  /* Takes whatever the viewport has left over, and carries the gap above the footer so that gap
+     disappears exactly when the content has already filled the screen. Sized from the viewport
+     rather than fixed: on a short laptop screen a constant 6rem was the difference between the
+     collection fitting and the whole page scrolling. */
+  main {
+    flex: 1 0 auto;
+    padding-bottom: clamp(1.5rem, 4svh, 6rem);
   }
 
   button,
@@ -138,8 +156,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    width: min(100% - 64px, 1480px);
-    min-height: 88px;
+    width: min(100% - var(--gutter) * 2, var(--shell));
+    min-height: clamp(60px, 8.4svh, 88px);
     margin: 0 auto;
   }
 
@@ -270,9 +288,9 @@
     grid-template-columns: 1fr 1fr 1fr;
     align-items: center;
     gap: 2rem;
-    width: min(100% - 64px, 1480px);
-    margin: 6rem auto 0;
-    padding: 2.2rem 0 3rem;
+    width: min(100% - var(--gutter) * 2, var(--shell));
+    margin: 0 auto;
+    padding: clamp(0.8rem, 2.2svh, 2.2rem) 0 clamp(0.9rem, 2.8svh, 3rem);
     border-top: 1px solid var(--line);
     color: var(--muted);
     font-size: 0.75rem;
@@ -448,9 +466,13 @@
     color: var(--muted);
   }
 
+  /* Every object is shot on the same flat backdrop, so the picture carries that colour itself:
+     the frame reads the same on every page, whatever surface it sits on, and the letterboxing
+     `contain` leaves is part of the picture instead of a border around it. */
   .object-art {
     width: 100%;
     height: 100%;
+    background: var(--object-bg);
     object-fit: contain;
   }
 
@@ -512,7 +534,7 @@
   }
 
   .serial-row--large strong {
-    font-size: 1.9rem;
+    font-size: 1.35rem;
   }
 
   .notice {
@@ -542,9 +564,11 @@
   .home-hero {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(430px, 0.9fr) minmax(430px, 1.1fr) 230px;
-    width: min(100% - 32px, 1536px);
-    min-height: clamp(440px, 52vh, 520px);
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr) 230px;
+    width: min(100% - var(--gutter) * 2, var(--shell));
+    /* One continuous scale instead of the two the page used to switch between: a viewport 1px
+       shorter than the old 760px gate turned a 328px hero into a 446px one. */
+    min-height: clamp(300px, 38svh, 430px);
     margin: 0 auto;
     overflow: hidden;
     border-radius: var(--radius);
@@ -566,18 +590,26 @@
     position: relative;
     z-index: 3;
     align-self: center;
-    padding: 3.5rem 0 3.5rem 4.5rem;
+    /* The title is allowed to run past this column into the stage, which is why the track has no
+       minimum of its own: the type scale below is what keeps it inside the hero. */
+    min-width: 0;
+    padding: clamp(1.6rem, 4.4svh, 3.5rem) 0 clamp(1.6rem, 4.4svh, 3.5rem) 4.5rem;
   }
 
   .home-hero h1 {
     max-width: 650px;
-    margin-bottom: 2.2rem;
-    font-size: clamp(3.5rem, 5.2vw, 5.2rem);
+    margin-bottom: clamp(1rem, 3svh, 2.2rem);
+    /* Answers to both axes at once, continuously: the height term is what used to be a media
+       query that swapped one type scale for another 1px either side of 760px. */
+    font-size: clamp(2.4rem, min(4.25vw, 7.4svh), 4.4rem);
     font-weight: 800;
     letter-spacing: -0.055em;
     text-transform: uppercase;
   }
 
+  /* One line per sentence. The line is allowed to run past the copy column into the stage, which
+     is empty at that height — but only while there is a stage beside it; stacked, the same rule
+     had the hero, which clips, cut the end of the sentence off. */
   .home-hero h1 span {
     display: block;
     white-space: nowrap;
@@ -614,7 +646,9 @@
     right: -4%;
     bottom: -7%;
     width: min(115%, 590px);
-    height: auto;
+    /* Bounded by the stage as well as by it, so a hero that is short for its width crops the
+       object at the sides where nothing is, instead of taking the top of its head off. */
+    max-height: 115%;
     filter: drop-shadow(0 12px 10px rgba(48, 53, 39, 0.1));
     transform: perspective(900px) translateY(calc(var(--pointer-y, 0) * -7px))
       rotateX(calc(var(--pointer-y, 0) * -3deg)) rotateY(calc(var(--pointer-x, 0) * 5deg)) scale(1.025);
@@ -662,24 +696,28 @@
   }
 
   .collection {
-    width: min(100% - 56px, 1480px);
-    margin: 28px auto 0;
+    width: min(100% - var(--gutter) * 2, var(--shell));
+    margin: clamp(14px, 2svh, 28px) auto 0;
     scroll-margin-top: 1rem;
   }
 
   .object-grid {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 20px;
+    gap: clamp(12px, 1.3vw, 20px);
   }
 
   .object-card {
     position: relative;
+    /* The card answers to its own width rather than to the viewport: the same card is six-up on a
+       wide screen and two-up on a phone, so its density has to follow the column it landed in and
+       not the breakpoint that produced that column. */
+    container: object-card / inline-size;
     min-width: 0;
     overflow: hidden;
     border: 1px solid var(--line);
     border-radius: var(--radius);
-    background: var(--paper);
+    background: var(--object-bg);
   }
 
   .object-card__link {
@@ -700,15 +738,16 @@
 
   .object-card__art {
     display: block;
-    height: 220px;
+    /* Proportional, so the picture follows the column. As a fixed height it moved on its own —
+       220px six-up, 280px three-up, 180px two-up — while the width moved the other way. */
+    aspect-ratio: 3 / 2;
     overflow: hidden;
     border-bottom: 1px solid var(--line);
-    background: #f5f2ec;
+    background: var(--object-bg);
   }
 
   .object-card__art img {
     object-fit: cover;
-    mix-blend-mode: multiply;
     transform: scale(1.01);
     transition: transform 260ms ease;
   }
@@ -718,7 +757,7 @@
   }
 
   .object-card__body {
-    padding: 1rem 1rem 1.05rem;
+    padding: clamp(0.7rem, 4.4cqi, 1rem) clamp(0.75rem, 4.4cqi, 1rem) clamp(0.75rem, 4.6cqi, 1.05rem);
   }
 
   .object-card__heading {
@@ -728,9 +767,12 @@
     gap: 0.5rem;
   }
 
+  /* Type sized from the card, not from the viewport, so the longest name in the catalogue stays
+     on one line at every column count instead of wrapping and pushing that one card's rows out of
+     line with its neighbours. */
   .object-card__heading h2 {
     margin-bottom: 0.3rem;
-    font-size: 0.78rem;
+    font-size: clamp(0.62rem, 5.4cqi, 0.78rem);
     font-weight: 750;
     letter-spacing: 0;
     text-transform: uppercase;
@@ -749,11 +791,20 @@
   }
 
   .object-card .serial-row {
-    margin-top: 1.15rem;
+    margin-top: clamp(0.55rem, 4cqi, 1.15rem);
+  }
+
+  .object-card .serial-row strong {
+    font-size: clamp(0.95rem, 9.8cqi, 1.38rem);
+  }
+
+  .object-card .serial-row span {
+    font-size: clamp(0.5rem, 4.47cqi, 0.63rem);
   }
 
   .object-card .barcode {
-    margin: 0.65rem 0 1.25rem;
+    width: clamp(70px, 47cqi, 105px);
+    margin: clamp(0.35rem, 2.5cqi, 0.65rem) 0 clamp(0.6rem, 5cqi, 1.25rem);
   }
 
   .object-card__footer {
@@ -769,10 +820,10 @@
   /* Object details */
   .product-page {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(390px, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 1fr);
     gap: 22px;
-    width: min(100% - 64px, 1120px);
-    margin: 2rem auto 0;
+    width: min(100% - var(--gutter) * 2, 1120px);
+    margin: clamp(1.2rem, 3svh, 2rem) auto 0;
   }
 
   .product-gallery {
@@ -783,11 +834,11 @@
      laptop screen on its own and pushed the object's own details below the fold. */
   .product-gallery__main {
     display: grid;
-    height: clamp(300px, 52vh, 460px);
+    height: clamp(280px, 46svh, 460px);
     overflow: hidden;
     border: 1px solid var(--line);
     border-radius: var(--radius);
-    background: var(--paper);
+    background: var(--object-bg);
     place-items: center;
   }
 
@@ -795,7 +846,6 @@
     /* Without it the automatic minimum size grows the row past the frame and the crop lands on
        the image, which is what object-fit is here to avoid. */
     min-height: 0;
-    mix-blend-mode: multiply;
     object-fit: contain;
     transform: none;
   }
@@ -813,12 +863,11 @@
     overflow: hidden;
     border: 1px solid var(--line);
     border-radius: var(--radius);
-    background: #f5f2ec;
+    background: var(--object-bg);
   }
 
   .product-gallery__thumbs img {
     object-fit: contain;
-    mix-blend-mode: multiply;
   }
 
   .product-gallery__thumbs > div:last-child img {
@@ -826,7 +875,7 @@
   }
 
   .product-panel {
-    padding: 2.2rem 2.6rem;
+    padding: 1.4rem 1.7rem;
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: var(--paper);
@@ -838,31 +887,37 @@
   }
 
   .product-panel h1 {
-    margin: 1.2rem 0 0.4rem;
-    font-size: clamp(2.6rem, 4vw, 4.2rem);
+    margin: 0.7rem 0 0.25rem;
+    font-size: clamp(1.8rem, 2.2vw, 2.5rem);
     text-transform: uppercase;
   }
 
   .product-panel__sku {
     display: block;
-    margin-bottom: 1.3rem;
-    font-size: 0.85rem;
+    margin-bottom: 0.8rem;
+    font-size: 0.8rem;
   }
 
   .product-panel .barcode {
-    margin: 0.8rem 0 1.8rem;
+    margin: 0.5rem 0 0.9rem;
   }
 
   .product-panel__price {
     display: block;
-    margin-bottom: 0.5rem;
-    font-size: 2.2rem;
+    margin-bottom: 0.4rem;
+    font-size: 1.5rem;
   }
 
   .product-panel__description {
-    margin: 1.8rem 0;
+    margin: 0.9rem 0;
     color: var(--muted);
-    font-size: 0.95rem;
+    font-size: 0.9rem;
+  }
+
+  /* The panel reads as one column beside the object, so its call to action does not need the full
+     standalone button height to stay the thing the eye lands on. */
+  .product-panel .button {
+    min-height: 52px;
   }
 
   .availability-note {
@@ -875,13 +930,13 @@
   }
 
   .inventory-details {
-    margin-top: 1.5rem;
-    padding-top: 1.4rem;
+    margin-top: 0.9rem;
+    padding-top: 0.9rem;
     border-top: 1px solid var(--line);
   }
 
   .inventory-details h2 {
-    margin-bottom: 0.8rem;
+    margin-bottom: 0.5rem;
     font-size: 1rem;
     letter-spacing: 0;
   }
@@ -889,7 +944,7 @@
   .inventory-details dl div {
     display: grid;
     grid-template-columns: 90px 1fr;
-    padding: 0.35rem 0;
+    padding: 0.22rem 0;
     font-size: 0.7rem;
   }
 
@@ -905,7 +960,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    margin-top: 1rem;
+    margin-top: 0.6rem;
     color: var(--muted);
     font-size: 0.68rem;
   }
@@ -919,8 +974,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    margin-top: 1.5rem;
-    padding: 1.2rem;
+    margin-top: 0.9rem;
+    padding: 0.8rem;
     border: 1px solid var(--line);
     border-radius: 9px;
   }
@@ -938,8 +993,8 @@
 
   .certificate-preview b {
     display: grid;
-    flex: 0 0 50px;
-    height: 50px;
+    flex: 0 0 38px;
+    height: 38px;
     border-radius: 50%;
     background: var(--terracotta);
     color: #8f4e2f;
@@ -949,8 +1004,32 @@
   /* Reservation and confirmation */
   .checkout-page,
   .confirmation-page {
-    width: min(100% - 64px, 1000px);
-    margin: 2rem auto 0;
+    width: min(100% - var(--gutter) * 2, 1000px);
+    margin: clamp(1.2rem, 3svh, 2rem) auto 0;
+  }
+
+  /* The back link is lifted out of the flow so it cannot push the progress off the page centre.
+     As a grid track it could not shrink below the width of its own label, and below 1100px it
+     stole up to 72px from the middle track and the three steps sat visibly off centre. */
+  .checkout-page__nav {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    margin-bottom: 1.4rem;
+  }
+
+  .checkout-page__nav > .back-link {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    white-space: nowrap;
+    transform: translateY(-50%);
+  }
+
+  .checkout-page__nav .checkout-progress {
+    width: min(100%, 700px);
+    max-width: none;
+    margin: 0;
   }
 
   .checkout-progress {
@@ -982,6 +1061,24 @@
 
   .checkout-progress li.is-active:not(:last-child)::after {
     background: var(--sage);
+  }
+
+  .checkout-progress a {
+    display: grid;
+    gap: 0.35rem;
+    justify-items: center;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .checkout-progress a:hover span,
+  .checkout-progress a:focus-visible span {
+    background: #7f8f70;
+    color: white;
+  }
+
+  .checkout-progress a:hover small {
+    text-decoration: underline;
   }
 
   .checkout-progress span {
@@ -1159,7 +1256,8 @@
 
   .order-summary > img {
     width: 100%;
-    height: 190px;
+    aspect-ratio: 4 / 3;
+    height: auto;
     border-radius: 8px;
     /* The object being reserved, not a decorative thumbnail: `cover` cut its top and bottom off. */
     object-fit: contain;
@@ -1255,7 +1353,8 @@
   }
 
   .confirmation-object img {
-    height: 100px;
+    aspect-ratio: 1 / 1;
+    height: auto;
   }
 
   .confirmation-object > div {
@@ -1395,8 +1494,8 @@
 
   /* Local operations console */
   .operations-page {
-    width: min(100% - 64px, 1460px);
-    margin: 1.5rem auto 0;
+    width: min(100% - var(--gutter) * 2, var(--shell));
+    margin: clamp(1rem, 2.5svh, 1.5rem) auto 0;
   }
 
   .operations-heading {
@@ -1484,7 +1583,7 @@
 
   .operations-grid {
     display: grid;
-    grid-template-columns: minmax(650px, 1.7fr) minmax(330px, 0.85fr);
+    grid-template-columns: minmax(0, 1.7fr) minmax(300px, 0.85fr);
     gap: 18px;
     margin-top: 18px;
   }
@@ -1495,6 +1594,13 @@
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: var(--paper);
+  }
+
+  /* The row answers to the panel, which is a 1.7fr column beside the log on a wide screen and the
+     whole page below 1250px. Keyed to the viewport instead, the seven fixed tracks ran past the
+     panel between 641 and 760px and cut the status pill and the chevron off. */
+  .inventory-panel {
+    container: inventory / inline-size;
   }
 
   .inventory-panel > header,
@@ -1578,6 +1684,45 @@
   .inventory-row > i {
     font-size: 1.2rem;
     font-style: normal;
+  }
+
+  @container inventory (max-width: 880px) {
+    .inventory-row {
+      grid-template-columns: 64px minmax(0, 1fr) 80px 70px 90px 15px;
+    }
+
+    .inventory-row > img {
+      width: 64px;
+      height: 64px;
+    }
+
+    /* Edition is the one column that repeats the same value on every row. */
+    .inventory-row > small {
+      display: none;
+    }
+  }
+
+  @container inventory (max-width: 620px) {
+    .inventory-row {
+      grid-template-columns: 58px minmax(0, 1fr) auto;
+      gap: 0.6rem;
+      min-height: 76px;
+    }
+
+    .inventory-row > img {
+      width: 58px;
+      height: 58px;
+    }
+
+    .inventory-row > b,
+    .inventory-row > strong,
+    .inventory-row > i {
+      display: none;
+    }
+
+    .inventory-row .status {
+      justify-self: end;
+    }
   }
 
   .inventory-panel > footer {
@@ -1728,21 +1873,22 @@
 
   /* Supporting pages */
   .about-page {
-    width: min(100% - 64px, 1460px);
-    margin: 2rem auto 0;
+    width: min(100% - var(--gutter) * 2, var(--shell));
+    margin: clamp(1.2rem, 3svh, 2rem) auto 0;
   }
 
   .about-hero {
     display: grid;
-    grid-template-columns: 0.9fr 1.1fr;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
     align-items: center;
     gap: clamp(2rem, 5vw, 6rem);
-    min-height: 520px;
+    min-height: clamp(0px, 48svh, 520px);
   }
 
   .about-hero h1 {
     margin-top: 0.7rem;
-    font-size: clamp(3.6rem, 5.7vw, 6rem);
+    /* No floor worth the name: at 3.6rem the second line ran past the page under 900px. */
+    font-size: clamp(2rem, 5.7vw, 6rem);
     text-transform: uppercase;
   }
 
@@ -1757,8 +1903,7 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     align-items: end;
-    min-height: 380px;
-    padding: 2rem;
+    padding: clamp(1rem, 2.4vw, 2rem);
     border-radius: var(--radius);
     background: var(--sage-soft);
   }
@@ -1768,8 +1913,8 @@
   }
 
   .about-objects img {
-    height: 220px;
-    mix-blend-mode: multiply;
+    aspect-ratio: 1 / 1;
+    height: auto;
   }
 
   .about-objects span {
@@ -2002,9 +2147,9 @@
 
   .return-page,
   .not-found {
-    width: min(100% - 40px, 700px);
-    margin: 6rem auto 0;
-    padding: 3rem;
+    width: min(100% - var(--gutter) * 2, 700px);
+    margin: clamp(2.5rem, 9svh, 6rem) auto 0;
+    padding: clamp(1.6rem, 5vw, 3rem);
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: var(--paper);
@@ -2097,71 +2242,26 @@
 }
 
 @layer responsive {
-  @media (min-width: 1251px) and (min-height: 680px) {
-    body:has(.home-hero) {
-      overflow: hidden;
-    }
-
-    body:has(.home-hero) .site-footer {
-      display: none;
-    }
-
-    .home-hero {
-      min-height: clamp(300px, 44vh, 400px);
-    }
-
-    .home-hero__copy {
-      padding-block: 2rem;
-    }
-
-    .home-hero h1 {
-      margin-bottom: 1.1rem;
-      font-size: clamp(3rem, 4.25vw, 4.25rem);
-    }
-
-    .home-hero__copy .button {
-      min-height: 50px;
-    }
-
-    .home-hero__details {
-      padding-top: 2.4rem;
-    }
-
-    .home-hero__rock-image {
-      right: 0;
-      bottom: -7%;
-      width: min(98%, 420px);
-    }
-
-    .home-hero__shadow {
-      right: 8%;
-      width: min(76%, 350px);
-    }
-
-    .collection {
-      margin-top: 14px;
-    }
-
-    .object-card__art {
-      height: clamp(115px, 18vh, 170px);
-    }
-
-    .object-card__body {
-      padding: 0.65rem 0.75rem 0.75rem;
-    }
-
-    .object-card .serial-row {
-      margin-top: 0.55rem;
-    }
-
-    .object-card .barcode {
-      margin: 0.35rem 0 0.6rem;
+  /* The gutter is the only thing the shell needs from the viewport: every full-width region
+     resolves its own width from it, so they all narrow together and keep one left edge. */
+  @media (max-width: 900px) {
+    :root {
+      --gutter: 24px;
     }
   }
 
+  @media (max-width: 640px) {
+    :root {
+      --gutter: 16px;
+    }
+  }
+
+  /* Six across is the signature of the collection, but it needs roughly 205px a card before the
+     longest name in the catalogue wraps and drops that one card's rows out of line. The step down
+     is to four rather than straight to three: three at this width doubled the card overnight. */
   @media (max-width: 1250px) {
     .home-hero {
-      grid-template-columns: 1fr 1fr 180px;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 180px;
     }
 
     .home-hero__copy {
@@ -2169,15 +2269,11 @@
     }
 
     .object-grid {
-      grid-template-columns: repeat(3, 1fr);
-    }
-
-    .object-card__art {
-      height: 280px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
     .operations-grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .events-panel {
@@ -2185,44 +2281,70 @@
     }
 
     .about-hero {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
       gap: 2rem;
     }
 
     .technical-flow__grid {
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 1000px) {
+    .object-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
   }
 
   @media (max-width: 900px) {
+    /* Stacked: beside a column this narrow the object was wider than the space left for it and
+       the hero clipped it in half, with the copy and the details stranded above the fold. */
     .home-hero {
-      grid-template-columns: 1fr 1fr;
-      min-height: 680px;
+      grid-template-columns: minmax(0, 1fr);
+      min-height: 0;
     }
 
     .home-hero__copy {
       align-self: start;
-      padding-top: 3rem;
+      padding: clamp(2rem, 4vw, 3rem) clamp(1.5rem, 4vw, 2.5rem) clamp(1.2rem, 3vw, 2rem);
+    }
+
+    .home-hero h1 {
+      font-size: clamp(1.75rem, 7.4vw, 3.6rem);
+    }
+
+    .home-hero h1 span {
+      white-space: normal;
     }
 
     .home-hero__stage {
-      min-height: 680px;
+      min-height: clamp(210px, 29svh, 300px);
     }
 
+    /* On the sage band at the foot of the stage, where the title can never reach them. */
     .home-hero__details {
       position: absolute;
-      top: 2rem;
-      right: 2rem;
+      bottom: 1.2rem;
+      left: clamp(1.5rem, 4vw, 2.5rem);
+      z-index: 4;
+      padding-top: 0;
+      transform: none;
     }
 
     .home-hero__rock-image {
-      right: -4%;
-      bottom: -2%;
-      width: 530px;
+      right: 0;
+      bottom: -4%;
+      width: min(72%, 420px);
+    }
+
+    .home-hero__shadow {
+      right: 4%;
+      bottom: 4%;
+      width: min(60%, 330px);
     }
 
     .product-page {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .product-gallery__main {
@@ -2232,7 +2354,19 @@
 
     .checkout-layout,
     .confirmation-layout {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 2rem;
+    }
+
+    /* Back in the flow: there is no longer room either side of the progress to hold it centred. */
+    .checkout-page__nav {
+      gap: 0.9rem;
+    }
+
+    .checkout-page__nav > .back-link {
+      position: static;
+      justify-self: start;
+      transform: none;
     }
 
     .order-summary {
@@ -2244,13 +2378,13 @@
     }
 
     .metrics {
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .project-purpose,
     .technical-flow > header,
     .trust-boundary {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .site-footer {
@@ -2262,12 +2396,17 @@
     }
   }
 
-  @media (max-width: 640px) {
-    .site-header {
-      width: min(100% - 28px, 1480px);
-      min-height: 72px;
+  @media (max-width: 700px) {
+    .object-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .about-objects {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 640px) {
     .brand__words {
       font-size: 1rem;
       letter-spacing: 0.08em;
@@ -2295,32 +2434,10 @@
       font-size: 0.58rem;
     }
 
-    .home-hero {
-      grid-template-columns: 1fr;
-      width: min(100% - 16px, 1536px);
-      min-height: 690px;
-    }
-
-    .home-hero__copy {
-      padding: 2.4rem 1.5rem 0;
-    }
-
-    .home-hero h1 {
-      font-size: clamp(2.7rem, 10.8vw, 3.2rem);
-    }
-
-    .home-hero__copy .button {
-      min-width: 190px;
-    }
-
-    .home-hero__stage {
-      min-height: 380px;
-    }
-
     .home-hero__rock-image {
       right: -3%;
       bottom: 0;
-      width: 400px;
+      width: min(112%, 380px);
       transform: none;
       transition: none;
     }
@@ -2328,88 +2445,28 @@
     .home-hero__shadow {
       right: 8%;
       bottom: 5%;
-      width: 300px;
+      width: min(80%, 300px);
       transform: none;
     }
 
+    .home-hero__stage {
+      min-height: clamp(260px, 33svh, 330px);
+    }
+
     .home-hero__details {
-      top: auto;
-      right: auto;
       bottom: 1rem;
-      left: 1.5rem;
-      padding: 0;
-      transform: none;
     }
 
     .home-hero__details > :not(strong):not(.status) {
       display: none;
     }
 
-    .collection,
-    .product-page,
-    .checkout-page,
-    .confirmation-page,
-    .operations-page,
-    .about-page {
-      width: min(100% - 28px, 1480px);
-    }
-
-    .object-grid {
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .object-card__art {
-      height: 180px;
-    }
-
-    .object-card__body {
-      padding: 0.8rem;
-    }
-
-    .object-card .serial-row strong {
-      font-size: 1rem;
-    }
-
-    .object-card .serial-row span {
-      display: none;
-    }
-
-    .object-card .barcode {
-      width: 70px;
-    }
-
-    .object-card__footer {
-      align-items: end;
-      gap: 0.3rem;
-    }
-
-    .object-card__footer .status {
-      padding: 0.25rem 0.4rem;
-      font-size: 0.75rem;
-    }
-
-    .site-footer {
-      grid-template-columns: 1fr;
-      width: min(100% - 28px, 1480px);
-    }
-
-    .site-footer__links {
-      justify-content: flex-start;
-    }
-
     .product-gallery__main {
       aspect-ratio: 1 / 1;
-      height: auto;
     }
 
     .product-gallery__thumbs {
       gap: 10px;
-    }
-
-    .product-gallery__thumbs > div {
-      aspect-ratio: 5 / 3;
-      height: auto;
     }
 
     .product-panel {
@@ -2417,24 +2474,16 @@
     }
 
     .product-panel h1 {
-      font-size: 2.8rem;
+      font-size: 2.4rem;
     }
 
     .checkout-progress {
       margin-bottom: 1.5rem;
     }
 
-    .checkout-page__heading h1 {
-      font-size: 2.5rem;
-    }
-
     .checkout-form,
     .order-summary {
       padding: 1.2rem;
-    }
-
-    .confirmation-copy h1 {
-      font-size: 3.2rem;
     }
 
     .confirmation-object {
@@ -2478,56 +2527,12 @@
       margin-top: 0.25rem;
     }
 
-    .inventory-row {
-      grid-template-columns: 58px 1fr auto;
-      gap: 0.6rem;
-      min-height: 76px;
-    }
-
-    .inventory-row > img {
-      width: 58px;
-      height: 58px;
-    }
-
-    .inventory-row > b,
-    .inventory-row > small,
-    .inventory-row > strong,
-    .inventory-row > i {
-      display: none;
-    }
-
-    .inventory-row .status {
-      justify-self: end;
-    }
-
-    .about-hero {
-      min-height: 0;
-    }
-
-    .about-hero h1 {
-      font-size: 3.3rem;
-    }
-
     .project-purpose {
-      grid-template-columns: 1fr;
       padding: 1.5rem;
     }
 
-    .about-objects {
-      grid-template-columns: 1fr 1fr;
-      padding: 1rem;
-    }
-
-    .about-objects img {
-      height: 115px;
-    }
-
     .technical-flow__grid {
-      grid-template-columns: 1fr;
-    }
-
-    .technical-flow > header {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .technical-flow article {
@@ -2540,6 +2545,36 @@
 
     .trust-boundary {
       padding: 1.5rem;
+    }
+
+    .site-footer {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .site-footer__links {
+      justify-content: flex-start;
+    }
+  }
+
+  /* Two columns leave 138px a card here, which is under what the longest name needs. */
+  @media (max-width: 360px) {
+    .object-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  /* Below this the brand and the three navigation items cannot share a line: they used to run
+     into each other rather than wrap, and the brand sat under the first link. */
+  @media (max-width: 460px) {
+    .site-header {
+      flex-wrap: wrap;
+      min-height: 0;
+      padding-block: 0.9rem;
+    }
+
+    .site-header nav {
+      justify-content: space-between;
+      width: 100%;
     }
   }
 
