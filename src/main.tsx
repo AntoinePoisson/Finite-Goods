@@ -15,7 +15,7 @@ const app = (
 );
 const root = document.getElementById('root')!;
 
-// only the homepage is prerendered, the other shells hydrate empty
+// only the homepage is prerendered, the other shells hydrate empty -- YOLO Achievements
 if (root.hasChildNodes() && appPath() === '/') hydrateRoot(root, app);
 else {
   root.replaceChildren();
