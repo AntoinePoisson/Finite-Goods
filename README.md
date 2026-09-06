@@ -235,11 +235,11 @@ Throttled mobile: FCP 1.1 s · LCP 1.7 s · TBT 0 ms · CLS 0.
 
 **What the browser actually downloads**, gzipped, as GitHub Pages serves it:
 
-| Request                                                                 | On the wire | When                                   |
-| ----------------------------------------------------------------------- | ----------- | -------------------------------------- |
-| `index.html`: pre-rendered homepage with the entire stylesheet inlined  | **9.8 kB**  | first paint, and it needs nothing else |
-| `index-*.js`: React and the whole application                           | ~70 kB      | after the copy is already on screen    |
-| `engine.wasm`: the Go domain engine                                     | ~980 kB     | on the **first command**, never before |
+| Request                                                                | On the wire | When                                   |
+| ---------------------------------------------------------------------- | ----------- | -------------------------------------- |
+| `index.html`: pre-rendered homepage with the entire stylesheet inlined | **9.8 kB**  | first paint, and it needs nothing else |
+| `index-*.js`: React and the whole application                          | ~70 kB      | after the copy is already on screen    |
+| `engine.wasm`: the Go domain engine                                    | ~980 kB     | on the **first command**, never before |
 
 The engine is 3.4 MB uncompressed. It is also the single most expensive thing in the project, which
 is exactly why nothing on the critical path touches it. See
@@ -247,11 +247,11 @@ is exactly why nothing on the critical path touches it. See
 
 **Timings**, Chromium against the local production build, median of three runs (`pnpm benchmark`):
 
-| Path                                                                            | Time        |
-| ------------------------------------------------------------------------------- | ----------- |
-| First command: worker start, 3.4 MB module instantiated, then `RESERVE_OBJECT`  | **~900 ms** |
-| Two further commands on the warm worker: lock → read → engine → write, twice    | **~40 ms**  |
-| Homepage first contentful paint, unthrottled                                    | **44 ms**   |
+| Path                                                                           | Time        |
+| ------------------------------------------------------------------------------ | ----------- |
+| First command: worker start, 3.4 MB module instantiated, then `RESERVE_OBJECT` | **~900 ms** |
+| Two further commands on the warm worker: lock → read → engine → write, twice   | **~40 ms**  |
+| Homepage first contentful paint, unthrottled                                   | **44 ms**   |
 
 **Bundle budgets**, enforced by `size-limit` in CI on the built output:
 
